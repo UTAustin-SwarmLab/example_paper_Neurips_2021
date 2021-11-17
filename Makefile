@@ -1,5 +1,5 @@
 TEX = pdflatex
-TARGET = Cheng.Pavone.ea.Neurips21
+TARGET = Cheng.Pavone.ea.Neurips.2021
 BIB = bibtex
 PDF = ps2pdf
 PS = dvips
