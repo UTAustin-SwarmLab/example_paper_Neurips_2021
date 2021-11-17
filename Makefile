@@ -1,6 +1,5 @@
 TEX = pdflatex
-TARGET = neurips_2021_control
-#TARGET = Appendix.ICML21.Submission.2044
+TARGET = Cheng.Pavone.ea.Neurips21
 BIB = bibtex
 PDF = ps2pdf
 PS = dvips
