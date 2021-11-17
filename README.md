@@ -1,2 +1,4 @@
 # example_paper
-Example LaTex File for a paper
+
+Please follow this directory structure for your future papers.
+

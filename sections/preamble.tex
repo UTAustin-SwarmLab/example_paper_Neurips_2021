@@ -1,0 +1,130 @@
+% \newcommand{\tu}[1]{{\underline{\textit{#1}}}}
+% \newcommand{\tbf}[1]{{\underline{\textbf{#1}}}}
+\newcommand{\tu}{\textbf}
+\newcommand{\tbf}{\textbf}
+\usepackage{color}
+\newcommand{\SC}[1]{{\color{black}#1}}
+\newcommand{\JC}[1]{{\color{black}#1}}
+\newcommand{\expec}{\mathbb{E}}
+\newcommand{\reals}{\mathbb{R}}
+\usepackage{balance}
+%\usepackage{breakurl}
+%\AtBeginEnvironment{proof}{\renewcommand{\qedsymbol}{}}{}{}
+
+%\setlength{\dbltextfloatsep}{0.5pt}
+
+%\usepackage{etoolbox}
+%\makeatletter
+%\patchcmd\@combinedblfloats{\box\@outputbox}{\unvbox\@outputbox}{}{\errmessage{\noexpand patch failed}}
+%\makeatother
+%
+\usepackage{hyperref}
+\def\UrlBreaks{\do\/\do-}
+
+%\usepackage[font=small]{caption}
+\usepackage{caption}
+
+%\usepackage{algorithmic,comment}
+%\usepackage{algorithm} 
+%\usepackage{algorithmic,comment}  
+%\usepackage[algo2e,ruled,vlined,commentsnumbered,titlenotnumbered,linesnumbered]{algorithm2e}
+%\usepackage{pseudocode} 
+\usepackage[algo2e]{algorithm2e} 
+
+
+
+\newcommand{\Nepochs}{N_{\text{epoch}}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\argmin}{\mathop{\rm argmin}}
+\newcommand{\argmax}{\mathop{\rm argmax}}
+
+\newcommand{\eg}{{\it e.g.}}
+\newcommand{\ie}{{\it i.e.}}
+\newcommand{\cf}{{\it cf.}}
+\newcommand{\etal}{{\it et al.}}
+
+% with MPC
+%\newcommand{\bolduMPCopt}{\bm{u_t}^{\text{MPC},*}}
+%\newcommand{\bolduMPChat}{\bm{\hat{u}_t}^{\text{MPC},*}}
+%\newcommand{\uMPCopt}{{u_t}^{\text{MPC},*}}
+%\newcommand{\uMPChat}{{\hat{u}_t}^{\text{MPC},*}}
+
+%\newcommand{\bolduMPCopt}{\bm{u_t}^{*}}
+% \newcommand{\bolduMPCopt}{\bm{u}^{*}}
+% \newcommand{\bolduMPChat}{\bm{\hat{u}}}
+%\newcommand{\bolduMPChat}{\bm{\hat{u}_t}}
+\newcommand{\bolduMPCopt}{\boldu^{*}}
+\newcommand{\bolduMPChat}{\bolduhat}
+\newcommand{\uMPCopt}{u_t^{*}}
+\newcommand{\uMPChat}{{\hat{u}_t}}
+
+\newcommand{\boldw}{\bold{w}}
+
+% definitions
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\newtheorem{thm}{Theorem}
+\newtheorem{clm}{Claim}
+\newtheorem{prop}{Proposition}
+\newtheorem{examp}{Example}
+\newtheorem{lem}{Lemma}
+\newtheorem{cor}{Corollary}
+\newtheorem{problem}{Problem}
+
+% task machine perception
+%\newcommand{\Aencoder}{A}
+%\newcommand{\Bdecoder}{B}
+%\newcommand{\Atilde}{\tilde{A}}
+%\newcommand{\Btilde}{\tilde{B}}
+%\newcommand{\KLQR}{K}
+%\newcommand{\taskoperand}{\KLQR x - \KLQR \Bdecoder \Aencoder x}
+%\newcommand{\reconoperand}{x - \Bdecoder \Aencoder x}
+
+\newcommand{\control}{\mathrm{c}}
+\newcommand{\encoder}{\mathrm{e}}
+\newcommand{\decoder}{\mathrm{d}}
+\newcommand{\forecaster}{\mathrm{F}}
+
+\newcommand{\thetacontrol}{\theta_\control}
+\newcommand{\thetaencoder}{\theta_\encoder}
+\newcommand{\thetadecoder}{\theta_\decoder}
+\newcommand{\ftask}{f}
+\newcommand{\shat}{\hat{s}}
+\newcommand{\zbottleneck}{Z}
+\newcommand{\ninput}{n}
+\newcommand{\moutput}{m}
+\newcommand{\nH}{nH}
+\newcommand{\mH}{mH}
+\newcommand{\pH}{pH}
+\newcommand{\fencoder}{p}
+\newcommand{\fdecoder}{q}
+\newcommand{\bolds}{\bold{s}}
+\newcommand{\boldS}{\bold{S}}
+\newcommand{\boldShat}{\bold{\hat{S}}}
+\newcommand{\boldshat}{\bold{\shat}}
+\newcommand{\boldu}{\bold{u}}
+\newcommand{\bolduhat}{\bold{\hat{u}}}
+\newcommand{\boldx}{\bold{x}}
+
+\newcommand{\boldst}{\bold{s_t}}
+\newcommand{\boldshatt}{\bold{\shat_t}}
+
+%\newcommand{\JMPC}{J^{\text{MPC}}}
+\newcommand{\JMPC}{\Jcontrol}
+
+\newcommand{\Jcontrol}{J^{\control}}
+\newcommand{\Joverall}{J^{\mathrm{tot.}}}
+\newcommand{\Jforecast}{J^{\forecaster}}
+\newcommand{\lambdaforecast}{\lambda^{\forecaster}}
+
+\newcommand{\transpose}{\intercal}
+\newcommand{\optimal}{*}
+\newcommand{\trans}{\top}
+\newcommand{\sdim}{p}
+
+% state, action, exogenous input dimensions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\statedim}{\reals^{\ninput}}
+\newcommand{\controldim}{\reals^{\moutput}}
+\newcommand{\exoinputdim}{\reals^{\sdim}}
+\newcommand{\doublevert}{\vert\vert}

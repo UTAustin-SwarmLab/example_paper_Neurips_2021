@@ -1,0 +1,136 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+\PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2021
+% ready for submission
+\usepackage[final]{neurips_2021}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2021}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2021}
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2021}
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{bbm}
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+% \usepackage{algpseudocode}
+\usepackage{amsthm}
+\usepackage{mathtools}
+
+\usepackage{subfigure}
+
+\usepackage{wrapfig}
+
+\input{sections/preamble}
+
+\title{Data Sharing and Compression for Cooperative Networked Control}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\usepackage{authblk}
+\renewcommand*{\Authfont}{\bfseries} 
+\author[1]{Jiangnan Cheng}
+\author[2]{Marco Pavone}
+\author[3]{Sachin Katti}
+\author[4]{Sandeep Chinchali}
+\author[1]{Ao Tang}
+
+\affil[1]{School of Electrical and Computer Engineering, Cornell University, Ithaca, NY}
+\affil[2]{Department of Aeronautics and Astronautics, Stanford University, Stanford, CA}
+\affil[3]{Department of Computer Science, Stanford University, Stanford, CA}
+\affil[4]{Department of Electrical and Computer Engineering, The University of Texas at Austin, Austin, TX \authorcr
+  \{\tt jc3377, atang\}@cornell.edu, \{\tt pavone, skatti\}@stanford.edu, \tt sandeepc@utexas.edu}
+
+% \author{%
+%   Jiangnan Cheng\\
+%   Cornell University\\
+%   \And
+%   Marco Pavone\\
+%   Stanford University\\
+%   \And
+%   Sachin Katti\\
+%   Stanford University\\
+%   \AND
+%   Sandeep Chinchali\\
+%   Stanford University\\
+%   \And
+%   Ao Tang\\
+%   Cornell University\\
+% }
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Sharing forecasts of network timeseries data, such as cellular or electricity load patterns, can improve independent control applications ranging from traffic scheduling to power generation. Typically, forecasts are designed without knowledge of a downstream controller's task objective, and thus simply optimize for \textit{mean} prediction error. However, such task-agnostic representations are often too large to stream over a communication network and do not emphasize salient temporal features for cooperative control. This paper presents a solution to learn succinct, highly-compressed forecasts that are \textit{co-designed} with a modular controller's task objective. Our simulations with real cellular, Internet-of-Things (IoT), and electricity load data show we can improve a model predictive controller's performance by at least $25\%$ while transmitting $80\%$ less data than the competing method. Further, we present theoretical compression results for a networked variant of the classical linear quadratic regulator (LQR) control problem.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+\input{sections/intro.tex}
+
+\section{Problem Formulation}
+\label{sec:problem_statement}
+\input{sections/problem_formulation.tex}
+
+\section{Forecaster and Controller Co-design}
+\label{sec:algorithm}
+\input{sections/algorithm.tex}
+
+\section{Application Scenarios}
+\label{sec:scenarios}
+\input{sections/scenarios.tex}
+
+\section{Evaluation}
+\label{sec:evaluation}
+\input{sections/experiments.tex}
+
+\section{Conclusion}
+\label{sec:conclusion}
+\input{sections/conclusion.tex}
+
+\section{Funding Disclosure}
+\label{sec:funding}
+\input{sections/funding_disclosure.tex}
+
+\bibliography{ref/ref}
+\bibliographystyle{unsrtnat}
+
+\newpage
+\section*{Checklist}
+\input{sections/checklist.tex}
+
+\newpage
+\appendix
+\section{Appendix}
+\input{sections/appendix.tex}
+
+
+\end{document}

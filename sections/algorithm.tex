@@ -1,0 +1,144 @@
+Prob. \ref{prob:codesign} is of wide scope, and can encompass both neural network forecasters and controllers. For intuition, we first provide analytical results for an \textit{input-driven} LQR problem in Sec. \ref{subsec:input_driven_LQR}. We then use such insights in a general learning algorithm that scales to DNN forecasters in Sec. \ref{subsec:alg_codesign}.
+
+\subsection{Input-Driven Linear Quadratic Regulator (LQR)}
+\label{subsec:input_driven_LQR}
+
+We first consider a simple instantiation of Prob. \ref{prob:codesign} with 
+linear dynamics\footnote{\JC{Transition noise is not added here due to certainty equivalence of input-driven LQR, as shown in Appendix Sec. \ref{subsec:lqr_transition_noise}.}}, no state or control constraints, and a quadratic control
+cost. Since the dynamics have linear dependence on the exogenous input $s$, we
+refer to this setting as an \textit{input-driven} LQR problem. We first analyze the problem
+when controls are computed for the full-horizon from $t=0$ to $T=H$ and then extend
+to receding-horizon control (MPC) in Sec. \ref{subsec:alg_codesign}. The dynamics and control cost are:
+\begin{align}
+    & x_{t+1} = A x_t + B u_t + C s_t, \\ 
+    & \JMPC = \sum_{t=0}^{H} x_t^\top Q x_t + \sum_{t=0}^{H-1} u_t^\top R u_t, 
+    \label{eq:input_driven_LQR} 
+\end{align}
+where $Q, R$ are positive definite.
+Our first step is to determine the optimal control.
+% To formally define Prob. \ref{prob:codesign} for input-driven LQR, we first find an optimal controller $\pi$ (Eq. \ref{eq:control_policy}).
+Given the linear dynamics, for all times $i \in \{0, \cdots, H-1\}$, each $x_{i+1}$ is a linear function of initial condition $x_0$ and the \textit{full future} control vector $\boldu$ and $\bolds$:
+\begin{align}
+x_{i+1} = A^{i+1} x_0 + \bm{M_{i}} \boldu + \bm{N_{i}} \bolds, ~~\text{where}~~\label{eq:rewrite_x_t}
+\end{align}
+\begin{align*}
+\bm{M_{i}} = \begin{bmatrix}
+A^{i}B & A^{i-1}B & \cdots & B & \bm{0}
+\end{bmatrix} \in \mathbb{R}^{n \times mH}, \bm{N_{i}} = \begin{bmatrix}
+    A^{i}C & A^{i-1}C & \cdots & C & \bm{0}
+\end{bmatrix} \in \mathbb{R}^{n \times pH}.
+\end{align*}
+
+Therefore, given $x_0$ and vector $\bolds$, control cost $\JMPC$ is a quadratic function of $\boldu$:
+\begin{align}
+\JMPC(\boldu; x_0, \bolds) ~=~ &  \boldu^\top (\underbrace{\bm{R} + \sum_{i=0}^{H-1} \bm{M_{i}}^\top Q \bm{M_{i}}}_{\bm{K}}) \boldu + 2[\underbrace{\sum_{i=0}^{H-1} \bm{M_{i}}^\top Q (A^{i+1} x_0 + \bm{N_{i}} \bolds)}_{\bm{k}(x_0, \bolds)}]^\top \boldu +~ \text{constant}, \label{eq:quadratic_jmpc}
+\end{align}
+where the constant of $\sum_{i=0}^{H-1} (A^{i+1} x_0 + \bm{N_{i}} \bolds)^\top Q (A^{i+1} x_0 + \bm{N_{i}} \bolds)$ is independent of $\boldu$, and $\bm{R} =\text{blockdiag}(R, \cdots, R) \in \mathbb{R}^{mH \times mH}$. Clearly, $\bm{K}$ is positive definite and $\JMPC$ is strictly convex.
+Given the convex quadratic cost, the optimal control is $\bolduMPCopt$, where $\bolduMPCopt = - \bm{K}^{-1} \bm{k}(x_0, \bolds)$. However, given a possibly noisy forecast $\boldshat$, we would instead plan and enact controls denoted by $\bolduMPChat$, where $\bolduMPChat = - \bm{K}^{-1} \bm{k}(x_0, \boldshat)$. Thus, the sensitivity of such controls to forecast errors is: 
+\begin{align}
+& \bolduMPChat - \bolduMPCopt = - \bm{K}^{-1} (\bm{k}(x_0, \boldshat) - \bm{k}(x_0, \bolds))
+= - \bm{K}^{-1} \underbrace{(\sum_{i=0}^{H-1} \bm{M_{i}}^\top Q \bm{N_{i}})}_{\bm{L}} (\boldshat - \bolds),
+\label{eq:control_error}
+\end{align}
+and the sensitivity of the control cost to forecast errors is:
+\begin{align}
+    \JMPC(\bolduMPChat; x_0, \bolds) - & \JMPC(\bolduMPCopt; x_0, \bolds)
+= (\bolduMPChat - \bolduMPCopt)^\top \bm{K} (\bolduMPChat - \bolduMPCopt) = (\boldshat - \bolds)^\top \underbrace{\bm{L}^\top \bm{K}^{-1} \bm{L}}_{\text{co-design matrix} ~\Psi} (\boldshat - \bolds), 
+\label{eq:codesign_intuitive}
+\end{align}
+where we term the positive semi-definite \textit{co-design matrix} $\Psi = \bm{L}^\top \bm{K}^{-1} \bm{L}$.
+We now combine the extra control cost and prediction error to calculate the total cost as: 
+\begin{align}
+    \Joverall & = \frac{1}{H}\big(\underbrace{(\boldshat - \bolds)^\top\Psi(\boldshat - \bolds)}_{\mathrm{extra~control~cost}} + \lambdaforecast \underbrace{(\boldshat - \bolds)^\top (\boldshat - \bolds)}_{\mathrm{prediction~error}}\big)
+    = \frac{1}{H}\big((\boldshat - \bolds)^\top (\Psi + \lambdaforecast I) (\boldshat - \bolds)\big).
+\end{align}
+The above expression leads to an intuitive understanding of co-design. The co-design matrix $\Psi$ in Eq. \ref{eq:codesign_intuitive} essentially weights the error in elements of $\boldshat$ based on their importance to the ultimate control cost. Thus, our approach is fundamentally \textit{task-aware} since the co-design matrix depends on LQR's dynamics, control, and cost matrices as shown in Eq. \ref{eq:control_error} and \ref{eq:codesign_intuitive}. The optional weighting of prediction error with $\lambdaforecast$ acts as a regularization term. Moreover, we now show that we can reduce input-driven LQR to a low-rank approximation problem, which 
+allows us to find an \textit{analytic} expression for an optimal encoder/decoder. 
+%that solve Prob. \ref{prob:codesign}}.
+
+%\subsection{Input-Driven LQR is Low-Rank Approximation}
+\textbf{Input-Driven LQR is Low-Rank Approximation.}
+%\label{subsec:low_rank_approximation}
+Given the above expressions for the total cost, we now assume a simple parametric
+model for the encoder and decoder to formally write Prob. \ref{prob:codesign} for the toy input-driven LQR setting. Specifically, we assume a linear encoder $E \in \reals^{\zbottleneck \times \pH}$ maps true exogenous input $\bolds$ to representation $\phi = E\bolds$, where $\phi \in \reals^{\zbottleneck}$. 
+Then, linear decoder matrix $D \in \reals^{\pH \times \zbottleneck}$ yields decoded timeseries $\boldshat = D\phi = DE\bolds$. In practice, we often have a training dataset consisting of $N$ samples of exogenous input $\bolds$ drawn from a data distribution $\bolds \sim \mathcal{D}$. These samples can be arranged as columns in a matrix $\boldS \in \reals^{\pH \times N}$. To learn an encoder $E$ and decoder $D$ from $N$ samples $\boldS$ at once, we can express our problem as:
+\begin{align}
+    \argmin_{D,E} \quad & \sum_{i=1}^{N}(\boldShat_i - \boldS_i)^\top (\Psi + \lambdaforecast I) (\boldShat_i - \boldS_i), \quad{\text{~where~}} \notag \\
+    & \boldShat = DE \boldS, ~\text{rank}(D) \le \zbottleneck \text{~and~rank}(E) \le \zbottleneck, 
+    \label{eq:low_rank_approximation}
+\end{align}
+where $\boldS_i$ and $\boldShat_i$ represent the $i$-th column vector of $\boldS$ and $\boldShat$. We now characterize the input-driven LQR problem.
+
+\begin{prop}[Linear Weighted Compression]
+    Input-driven LQR (Eq. \ref{eq:low_rank_approximation}) is a low-rank approximation problem, which admits an analytical solution for an optimal encoder and decoder pair $(E, D)$. \label{prop:input_dirven_lqr}
+\end{prop}
+\begin{proof}
+    \renewcommand{\qedsymbol}{}
+We first re-write the objective of the input-driven LQR problem (Eq. \ref{eq:low_rank_approximation}) as: 
+$\sum_{i=1}^{N}(\boldShat_i - \boldS_i)^\top (Y \Lambda Y^\top) (\boldShat_i - \boldS_i)
+= \doublevert \Lambda^{\frac{1}{2}} Y^\top \boldShat - \Lambda^{\frac{1}{2}}Y^\top \boldS \doublevert_F^2$, 
+where $Y \Lambda Y^\top$ is the eigen-decomposition of the positive definite matrix $\Psi + \lambdaforecast I$ and $\doublevert . \doublevert_F$ represents the Frobenius norm of a matrix. Thus, the problem can be written as: 
+    \begin{align}
+        \argmin_{D,E} \quad \doublevert \underbrace{\Lambda^{\frac{1}{2}}Y^\top DE \boldS}_{\mathrm{approximation}} - \underbrace{\Lambda^{\frac{1}{2}}Y^\top \boldS}_{\mathrm{original}} \doublevert_F^2, \quad{\text{~where~}} ~\text{rank}(D) \le \zbottleneck \text{~and~rank}(E) \le \zbottleneck, 
+        \label{eq:low_rank_approximation_final}
+    \end{align}
+    which is the canonical form of a low-rank approximation problem. By the Eckhart-Young theorem, the solution to the input-driven LQR problem (Eq. \ref{eq:low_rank_approximation_final}) is the rank $Z$ truncated singular value decomposition (SVD) of original matrix $\Lambda^{\frac{1}{2}}Y^\top\bold{S}$, denoted by $U \Sigma V^\top$. In the truncated SVD, $U\in\reals^{\pH \times Z}$ is semi-orthogonal, $\Sigma \in \reals^{Z\times Z}$ is a diagonal matrix of singular values, and $V \in \reals^{N \times Z}$ is semi-orthogonal. Further, an encoder of $E = U^\top \Lambda^{\frac{1}{2}} Y^\top$ and decoder of $D = (\Lambda^{\frac{1}{2}} Y^\top)^{-1}U$ solve the problem since:
+\begin{align*}
+    \underbrace{\Lambda^{\frac{1}{2}}Y^\top DE \bold{S}}_{\mathrm{approximation}}
+    = & ~\Lambda^{\frac{1}{2}}Y^\top \underbrace{(\Lambda^{\frac{1}{2}}Y^\top)^{-1}U}_{D} \underbrace{U^\top \Lambda^{\frac{1}{2}}Y^\top}_{E} \bold{S}
+    = ~U (U^\top \Lambda^{\frac{1}{2}} Y^\top \bold{S} ) = \underbrace{U \Sigma V^\top}_{\mathrm{optimal~rank~Z~approximation}}.  
+\end{align*}
+%Due to space limits, further details are in the supplement. 
+%In the last step, we used the fact that $U^\top Y^\top \Lambda^{\frac{1}{2}}\bold{S} = U^\top (U \Sigma V^\top + U' \Sigma' V'^\top) = \Sigma V^\top$ because $U$ and $U'$ are orthogonal.
+\end{proof}
+
+A similar analysis for a linear encoder-decoder structure for networked inference, not control, is presented in \cite{DBLP:conf/rss/NakanoyaCADKP21}. The key difference from our current paper is our problem setup is for control, not networked inference. \JC{Moreover, our result differs from existing LQR literatures with exogenous input, such as \cite{singh2017extended}, since our exogenous input $s_t$ is subject to to a network bottleneck and encoder/decoder, which is the crux of our Prob. \ref{prob:codesign}; and our total cost includes the extra control cost due to mis-estimation of $s_t$, rather than simply the prediction error of $s_t$.}
+
+\textbf{Compression benefits: }
+Casting input-driven LQR as low-rank approximation provides significant intuition.
+As shown in Proposition \ref{prop:input_dirven_lqr}, the optimal encoder/decoder depend on the truncated SVD of $\Lambda^{\frac{1}{2}} Y^\top \boldS$, which takes into account the control task via the co-design matrix, importance of prediction errors via $\lambdaforecast$, and statistics of the input via $\boldS$. \SC{We achieved strong compression benefits for simulations of input-driven LQR (provided in supplement Fig. \ref{fig:main_pca_full} due to space limits).} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\subsection{Transitioning to Model Predictive Control (MPC)}
+\textbf{Transitioning to Model Predictive Control (MPC).}
+In practice, we often have forecasts for a short horizon $H < T$. Then, starting from any state $x_t$, MPC will plan a sequence of controls $\hat{u}_{t:t+H-1}$, enact the first control $\hat{u}_t$, and then re-plan with the next forecast. If we replace the horizon to $H < T$ in the input-driven LQR analysis in Sec. \ref{subsec:input_driven_LQR}, $\bolduMPCopt = - \bm{K}^{-1} \bm{k}(x_0, \bolds)$ gives the optimal control for a \textit{short-horizon} $H$ and we can encode/decode using a low rank approximation as in Prop. 1. While the performance is \textit{not} necessarily optimal for the full duration $T$, MPC performs extremely well in practice, yielding even better compression gains, as shown in the supplement (Fig. \ref{fig:main_pca}). 
+
+\input{latex_fig/fig_algorithm}
+
+We also note a practitioner can adopt a simple cost function based on MPC that complements Eq. \ref{eq:weighted_cost}. The MPC controller $\pi$ will optimize the cost $\Joverall$ given a short-horizon forecast $\shat_{t:t+H-1}$, but only enact the \textit{first} control $\hat{u}_t = \pi(x_t, \shat_{t:t+H-1}; \thetacontrol)$. Meanwhile, the best first control MPC can take is $u_t = \pi(x_t, s_{t:t+H-1}; \thetacontrol)$ with perfect knowledge of $s$ for horizon $H$. Thus, our insight is that we can penalize the errors in \textit{enacted} controls $\hat{u}_t$ during training and regularize for prediction error, using cost:
+$\frac{1}{T}\big(\sum_{t=0}^{T-1} \doublevert \hat{u}_t - u_t \doublevert_2^2 + \lambdaforecast \doublevert \hat{s}_{t} - s_t \doublevert_2^2\big)$.
+In our experiments, we observed strong performance by optimizing for the cost Eq. \ref{eq:weighted_cost}, as well as the above cost, which optimizes $\Joverall$ over a short-horizon for MPC.
+We now crystallize these insights from input-driven LQR into a formal algorithm that applies to data-driven MPC.
+%\JC
+%{
+%However, for MPC in general we are not able to relate control difference directly to forecasting error (like what we did in Eq. \ref{eq:control_error}), because the $x_t$ evolves differently with optimal and non-optimal control and hence also contributes to control difference. Therefore,  
+%we replace the extra control cost in Eq. \ref{eq:weighted_cost} with the average control error, defined as:
+%\begin{small}
+%\begin{align*}
+%    \frac{1}{T} \sum_{t=0}^{T-1} \doublevert \pi(x_t, s_{t:t+H-1}; \thetacontrol) - \pi(x_t, s_{t:t+H-1}; \thetacontrol) \doublevert_2^2
+%\end{align*}
+%\end{small}
+%where $\pi(x_t, s_{t:t+H-1}; \thetacontrol)$ and $\pi(x_t, s_{t:t+H-1}; \thetacontrol)$ adopt the same $x_t$. Our ideology is, the controller with a small average control error in general has a similar evolution of $x_t$ as the optimal controller, which further produces near-optimal control cost. 
+%
+%(Can remove the definition in Sec. 5.2 after adding this)  
+%}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Algorithm to Co-design Forecaster and Controller}
+\label{subsec:alg_codesign}
+For more complex scenarios than LQR, it is challenging to provide analytical forms of an optimal encoder and decoder. Thus, we present a heuristic algorithm to solve Prob. \ref{prob:codesign} in Algorithm \ref{alg:codesign}. 
+Our key technical insight is that, if the encoder, decoder, and controller are differentiable, we can write:
+\begin{align}
+    \frac{\nabla \Joverall(\boldu, \bolduhat, \bolds, \boldshat; x_0, \lambdaforecast)}{\nabla \thetaencoder} = \frac{\nabla \Joverall(\boldu, \bolduhat, \bolds, \boldshat; x_0, \lambdaforecast)}{\nabla (\boldshat - \bolds)} \times \frac{\nabla (\boldshat- \bolds)}{\nabla \thetaencoder},
+\end{align}
+and likewise for $\thetadecoder$. The first term captures the sensitivity of the control cost with respect to prediction errors and the second propagates that sensitivity to the forecasting model.
+Crucially, the gradient of $\Joverall$ can be obtained from recent methods that learn differentiable MPC controllers \cite{agrawal2020learningcontrol,amos2018differentiable}. 
+
+% \input{latex_fig/fig_algorithm}
+
+In lines 1-2 of Alg.\ref{alg:codesign}, we randomly initialize the encoder and decoder parameters and set the latent representation size $\zbottleneck$ to limit the communication data-rate. Then, we enact control policy rollouts in lines 3-11 for $\Nepochs$ training epochs, each of duration $T$. We first encode and decode the forecast $\boldshat$ (lines 6-7) and pass them to the downstream controller with fixed parameters $\thetacontrol$ (lines 8-10). During training, we calculate the loss by comparing the optimal weighted cost with \textit{true} input $\bolds$ and the forecast $\boldshat$. In turn, this loss is used to train the differentiable encoder and decoder through backpropagation in line 12. Finally, the learned encoder and decoder (line 14) are deployed.
+
+\textbf{Co-design Algorithm Discussion: }
+A few comments are in order. First, true input $\bolds$ is only needed during \textit{training}, which is accomplished at a single server using historical data to avoid passing large gradients over a real network. Then, we can periodically re-train the encoder/decoder during online deployment.
+Second, our approach also applies when $\thetacontrol$ are parameters of a deep reinforcement learning (RL) policy. 
+However, since the networked systems we consider have well-defined dynamical models, we focus our evaluation on model-based control. 
+%learning forecasters for model-based control.

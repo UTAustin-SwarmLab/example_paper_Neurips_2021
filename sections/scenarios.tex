@@ -1,0 +1,55 @@
+We now describe three diverse application scenarios addressed in our evaluation. The scenarios
+are linear MPC problems with box control constraints:
+\begin{align}
+    & x_{t+1} = x_{t} + u_t - s_t, ~~\text{(Dynamics)}  \quad{\text{~where~}} ~~
+    u_{\text{min}} \leq u_t \leq u_{\text{max}}. ~~\text{(Constraints)} \label{eq:dynamics_MPC}
+\end{align}
+Our scenarios have the same state and control dimensions $m=n$, and dynamics/control matrices $A=B=I_{n \times n}$ indicate uniform coupling between controls and the next state. Finally, we have actuation limits $u_{\text{min}}$ and $u_{\text{max}}$. The cost function incentivizes regulation of the state $x_t$ to a set-point $L$. In practice, we often want to penalize states below the set-point, such as inventory shortages where $x_t < L$, more heavily than those above, such as excesses. In the following cost, weights $\gamma_e, \gamma_s, \gamma_u \in \reals^{+}$ govern excesses, shortages, and controls $u_t$ respectively:
+\begin{align}
+    \Jcontrol(\boldx, \boldu) = \sum_{t=0}^{T} (\gamma_e \doublevert [x_t - L]_{+} \doublevert^2_2 + \gamma_s \doublevert [L - x_t]_{+} \doublevert^2_2)  + \sum_{t=0}^{T-1} \gamma_u \doublevert u_t \doublevert^2_2,
+\label{eq:biased_LQR_cost}
+\end{align}
+where $[x]_{+}$ represents the positive elements of a vector. We focus on linear MPC with box constraints and a flexible quadratic cost (Eq. \ref{eq:biased_LQR_cost}) since it is a canonical problem \cite{Camacho2013,borrelli2017predictive} with wide applications in networked systems. \SC{However, to show the generality of co-design, we provide strong experimental results for a mobile video streaming application with \textit{noisy, non-linear} dynamics in 
+% Appendix 
+Sec. \ref{subsec:nonlinear}}.
+We evaluate diverse MPC settings coupled with an array of neural network forecasters.
+%Our diverse scenarios couple linear MPC with neural-network forecasting models.
+%Linear MPC with box constraints and a flexible quadratic cost (Eq. \ref{eq:biased_LQR_cost}) is a canonical problem with wide engineering applications \cite{Camacho2013,borrelli2017predictive}.
+%%\subsection{Data-Center Temperature Control}
+%\textbf{Data-Center Temperature Control:}
+%Consider an idealized datacenter cooling problem, where $x \in \statedim$ represents the temperature of $n$ server racks we wish to regulate to a temperature set-point of $L$. External heat disturbances $s \in \exoinputdim$ add to temperature state $x_t$ uniformly with $\beta = 1$ in the dynamics (Eq. \ref{eq:dynamics_MPC}). Disturbances are measured by $p=n$ IoT temperature sensors, such as from nearby heating units in the building. Our objective is to select control inputs $u \in \controldim$ to cool the server racks \textit{anticipating} heat disturbances $s$ from the $p$ IoT sensors. The cost function (Eq. \ref{eq:biased_LQR_cost}) has $\gamma_e = \gamma_s = \gamma_u = 1$ to equally penalize temperature deviation and cooling effort. Finally, we captured stochastic timeseries of temperature, pressure, humidity, and light from the Google Edge Tensor Processing Unit (TPU)'s environmental sensor board. Further details of our real-world dataset are provided in the supplement. 
+
+\textbf{Smart Factory Regulation with IoT Sensors:}
+We consider an \textit{idealized} scenario similar to datacenter temperature control \cite{recht2019tour}, where $x_t \in \statedim$ represents the temperature, humidity, pressure and light for $\frac{n}{4}$ machines in a smart factory, each of whose 4 sensor measurements we want to regulate to a set-point of $L$. External heat, humidity, and pressure disturbances $s \in \exoinputdim$ add to state $x_t$ in the dynamics (Eq. \ref{eq:dynamics_MPC}). Disturbances are measured by $p=n$ IoT sensors, such as from nearby heating units. Our objective is to select control inputs $u \in \controldim$ to regulate the environment \textit{anticipating} disturbances $s$ from the $p$ IoT sensors. The cost function (Eq. \ref{eq:biased_LQR_cost}) has $\gamma_e = \gamma_s = \gamma_u = 1$ to equally penalize deviation from the set-point and regulation effort. Finally, we collected two weeks of stochastic timeseries of temperature, pressure, humidity, and light from the Google Edge Tensor Processing Unit (TPU)'s environmental sensor board for our experiments, as detailed in the supplement.
+% $x_t \in \statedim$ represents the temperature, humidity, and pressure of $n$ machines in a smart factory we wish to regulate to a set-point of $L$ per machine. External heat, humidity, and pressure disturbances $s \in \exoinputdim$ add to state $x_t$ in the dynamics (Eq. \ref{eq:dynamics_MPC}). Disturbances are measured by $p=n$ IoT temperature sensors, such as from nearby heating units. Our objective is to select control inputs $u \in \controldim$ to cool and regulate the machine pressure \textit{anticipating} disturbances $s$ from the $p$ IoT sensors. The cost function (Eq. \ref{eq:biased_LQR_cost}) has $\gamma_e = \gamma_s = \gamma_u = 1$ to equally penalize deviation from the set-point and regulation effort. Finally, we collected two weeks of stochastic timeseries of temperature, pressure, humidity, and light from the Google Edge Tensor Processing Unit (TPU)'s environmental sensor board for our experiments, as detailed in the supplement.  
+
+%\subsection{Taxi Dispatch Based on Cell Demand Data}
+\textbf{Taxi Dispatch Based on Cell Demand Data: }
+In this scenario, state $x_t \in \statedim$ represents the difference between the number of free taxis and waiting passengers at $n$ city sites, so $x_t > 0$ represents idling taxis while $x_t < 0$ represents queued passengers. Control $u_t \in \controldim$ represents how many taxis are dispatched to serve queued passengers. Exogenous input $s_t \in \exoinputdim$ represents how many new passengers join the queue at time $t$. Of course, the taxi service has a historical forecast of $s_t$, but the cellular operator can use city-wide mobility data to \textit{improve} the forecast. 
+Our goal is to regulate $x_t$ to $L=0$ to neither have waiting passengers nor idling taxis. In the cost function (Eq. \ref{eq:biased_LQR_cost}), we have $\gamma_e = 1, \gamma_s = 100$ and $\gamma_u = 1$ to heavily penalize customer waiting time for long queues. Our simulations use 4 weeks of stochastic cell demand data from Melbourne, Australia from \cite{chinchali2018cellular}.
+
+\textbf{Battery Storage Optimization: }
+Our final scenario is inspired by a closely-related work to ours \cite{donti2017task}, who consider how a \textit{single} battery must be charged or discharged based on electricity price forecasts. Since our setting involves a vector timeseries $s$, we consider electrical load forecasts from \textit{multiple} markets. Thus, we used electricity demand data from the same PJM operator as in \cite{donti2017task}, but from multiple markets in the eastern USA \cite{PJM}. Specifically, state $x_t \in \statedim$ represents the charge on $\ninput$ batteries and control $u_t \in \controldim$ represents how much to charge the battery to meet demand. Timeseries $s_t \in \exoinputdim$ represents the demand forecast at the locations of the $n$ batteries, where $p=n$. 
+In the cost function (Eq. \ref{eq:biased_LQR_cost}), we desire a battery of total capacity $2L$ to reach a set-point where it is half-full, which, as per \cite{donti2017task}, allows flexibly switching between favorable markets. Further, we set $\gamma_e = \gamma_s = \gamma_u = 1$. 
+%The box constraints enforce a positive charge between $0$ and $2L$, so $0 \le x_t \le 2L$.
+%Further, to ensure demand can be met, we penalize lower charge stores more heavily than excess charge with $\gamma_e \gg \gamma_s$. 
+
+%\JC
+%{
+%[IoT, PJM] Basic formulation (save us from using $A, B, C$ ...):
+%\begin{align*}
+%x_{t+1} = x_{t} + u_t - s_t, \\
+%J = \sum_{t=0}^{T} ||x_t||^2_2 + \sum_{t=0}^{T-1} ||u_t||^2_2 
+%\end{align*}
+%
+%[Cell] Biased cost function:
+%\begin{align*}
+%J = \sum_{t=0}^{T} (\gamma_e ||x_{t, e}||^2_2 + \gamma_s ||x_{t, s}||^2_2) + \sum_{t=0}^{T-1} ||u_t||^2_2 
+%\end{align*}
+%where $x_{t, e}$ and $x_{t, s}$ are the positive and negative part of $x_t$, respectively.
+%
+%[IoT 2nd Version] Box-constrained dynamics:
+%\begin{align*}
+%u_{\text{min}} \leq u_t \leq u_{\text{max}} \\
+%\end{align*}
+%}

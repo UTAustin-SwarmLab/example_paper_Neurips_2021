@@ -1,0 +1,83 @@
+We now describe the information exchange between a generator of timeseries data, henceforth called a forecaster, and a controller, as shown in Fig. \ref{fig_problem}. Both systems operate in discrete time, indexed by $t$, for a time horizon of $T$ steps. The notation $y_{a:b}$ denotes a timeseries $y$ from time $a$ to $b$.
+
+\tbf{Forecast Encoder:}
+The forecaster measures a high-volume timeseries $s_t \in \reals^p$. Timeseries $s$ is drawn from a domain-specific distribution $\mathcal{D}$, such as cell-demand patterns, denoted by $s_{0:T-1} \sim \mathcal{D}$. A differentiable encoder maps the past $W$ measurements, denoted by $s_{t-W+1:t}$, to a compressed representation $\phi_t \in \reals^Z$, using model parameters $\thetaencoder$: $\phi_t = g_{\mathrm{encode}}(s_{t-W+1:t}; \thetaencoder)$. Typically, $Z\ll p$ and is referred to as the \textit{bottleneck} dimension since it limits the communication data-rate and how many floating-point values are sent per unit time.
+
+
+\tbf{Forecast Decoder:}
+The compressed representation $\phi_t$ is transmitted over a bandwidth-constrained communication network, where a downstream decoder maps $\phi_t$ to a forecast $\shat_{t:t+H-1}$ for the next $H$ steps, denoted by: $\hat{s}_{t:t+H-1} = g_{\mathrm{decode}}(\phi_t; \thetadecoder)$,  
+where $\thetadecoder$ are decoder parameters. Importantly, we decode representation $\phi_t$ into a forecast $\hat{s}$ so it can be directly passed to a model-predictive controller that interprets $\hat{s}$ as a physical quantity, such as traffic demand. 
+\SC{The encoder and decoder jointly enable compression and forecasting by mapping past observations to a forecast via bottleneck $\phi_t$}.
+
+
+\tbf{Modular Controller:}
+The controller has an internal state $x_t \in \reals^n$ and must choose an optimal control $u_t \in \reals^m$. We denote the admissible state and control sets by $\mathcal{X}$ and $\mathcal{U}$ respectively. The system dynamics also depend on external timeseries $s_t$ and are given by:
+$x_{t+1} = f(x_t, u_t, s_t), \quad t \in \{0, \cdots, T-1\}$.
+Importantly, while state $x_t$ depends on \textit{exogenous} input $s_t$, we assume $s_t$ evolves \textit{independently} of $x_t$ and $u_t$. This is a practical assumption in many networked settings. For example, the demand $s_t$ for taxis might mostly depend on city commute patterns and not an operator's routing decisions $u_t$ or fleet state $x_t$.
+Ideally, control policy $\pi$ chooses a decision $u_t$ based on fully-observed internal state $x_t$ and \textit{perfect} knowledge of exogenous input $s_{t:t+H-1}$:
+$u_t = \pi(x_t, s_{t:t+H-1}; \thetacontrol)$, 
+where $\thetacontrol$ are control policy parameters, such as a feedback matrix for LQR. However, in practice, given a possibly noisy forecast $\hat{s}_{t:t+H-1}$, it will \textit{enact} a control denoted by $\hat{u}_t = \pi(x_t, \hat{s}_{t:t+H-1}; \thetacontrol)$, which implicitly depends on the encoder/decoder parameters $\thetaencoder,\thetadecoder$ via the forecast $\hat{s}$.
+
+\tbf{Control Cost:}
+Our main objective is to minimize end-to-end control cost $\Jcontrol$, 
+which depends on initial state $x_0$ and controls $\hat{u}_{0:T-1}$, which in turn depend on the \textit{forecast} $\shat_{0:T-1}$. For a simpler notation, we use bold variables to define the full timeseries, i.e., $\boldu := u_{0:T-1}$, $\bolds := s_{0:T-1}$, $\bolduhat := \hat{u}_{0:T-1}$ and $\boldshat := \shat_{0:T-1}$. The control cost $\Jcontrol$ is a sum of stage costs $c(x_t, \hat{u}_t)$ and terminal cost $c_T(x_T)$:
+$\Jcontrol(\bolduhat; x_0, \bolds) = c_T(x_T) + \sum_{t=0}^{T-1} c(x_t, \hat{u}_t)$, where
+$x_{t+1} = f(x_t, \hat{u}_t, s_t), t \in \{0, \cdots, T-1\}$.    
+Importantly, the above plant dynamics $f$ evolve according to true timeseries $s_t$, but controls $\hat{u}_t$ are enacted with possibly noisy forecasts $\shat_t$. 
+
+\tbf{Forecasting Errors:}
+In practice, a designer often wants to visualize decoded forecasts $\shat$ to debug anomalies or view trends. While our principal goal is to minimize the control errors and cost associated with forecast $\shat$, we allow a designer to \textit{optionally} penalize mean squared prediction error (MSE). This penalty incentivizes a forecast $\shat_t$ to estimate the key trends of $s_t$, serving as a regularization term: 
+$\Jforecast(\bolds, \boldshat) = \frac{1}{T} \sum_{t=0}^{T-1} \vert \vert s_t - \shat_t \vert \vert^2_2.$
+
+\tbf{Overall Weighted Cost:}
+Given our principal objective of minimizing control cost and optionally penalizing prediction error, we combine the two costs using a user-specified weight $\lambdaforecast$. 
+Importantly, we try to minimize the \textit{additional} control cost $\Jcontrol(\bolduhat; x_0, \bolds)$ incurred by using forecast $\boldshat$ instead of true timeseries $\bolds$, yielding overall cost:
+\begin{align}
+     \Joverall(\boldu, \bolduhat, \bolds, \boldshat; x_0, \lambdaforecast) = \frac{1}{T}\big(\underbrace{\Jcontrol(\bolduhat; x_0, \bolds) - \Jcontrol(\boldu; x_0, \bolds)}_{\mathrm{extra ~control~ cost}}\big) + \lambdaforecast \Jforecast(\bolds, \boldshat). 
+    \label{eq:weighted_cost}
+\end{align}
+The total cost implicitly depends on controller, encoder, and decoder parameters via controls $\boldu$ and $\bolduhat$ and the forecast $\boldshat$.
+Having defined the encoder/decoder and controller, we now formally define the problem addressed in this paper.
+\begin{problem}[Data Compression for Cooperative Networked Control]
+\label{prob:codesign}
+We are given a controller $\pi(; \thetacontrol)$ with fixed, pre-trained parameters $\thetacontrol$, fixed bottleneck dimension $\zbottleneck$, and perfect measurements of internal controller state $x_{0:T}$. Given a true exogenous timeseries $s_{0:T-1}$ drawn from data distribution $\mathcal{D}$, find encoder and decoder parameters $\thetaencoder, \thetadecoder$ to minimize the weighted control and forecasting cost (Eq. \ref{eq:weighted_cost}) with weight $\lambdaforecast$:
+\begin{align*}
+    \thetaencoder^{*}, \thetadecoder^{*} & = \argmin_{\thetaencoder, \thetadecoder} \quad \expec_{s_{0:T-1} \sim \mathcal{D}} [\Joverall(\boldu, \bolduhat, \bolds, \boldshat; x_0, \lambdaforecast)], ~\mathrm{where~} \\ 
+    & \phi_t = g_{\mathrm{encode}}(s_{t-W+1:t}; \thetaencoder), ~\phi_t \in \reals^{\zbottleneck} \\
+    & \shat_{t:t+H-1} = g_{\mathrm{decode}}(\phi_t; \thetadecoder), \\
+    & \hat{u}_t = \pi(x_t, \shat_{t:t+H-1}; \thetacontrol), ~u_t = \pi(x_t, s_{t:t+H-1}; \thetacontrol), \\ 
+    & x_{t+1} = f\big(x_t, \hat{u}_t, s_t), \quad \mathrm{and} \quad x_t \in \mathcal{X}, \hat{u}_t \in \mathcal{U}, \quad t \in \{0, \cdots, T-1\}.
+\end{align*}
+% \begin{align*}
+%     \thetaencoder^{*}, \thetadecoder^{*} & = \argmin_{\thetaencoder, \thetadecoder} \expec_{s_{0:T-1} \sim \mathcal{D}} \Joverall(\boldu, \bolduhat, \bolds, \boldshat; x_0, \lambdaforecast), ~\mathrm{where~} \\ 
+%     & \phi_t = g_{\mathrm{encode}}(s_{t-W+1:t}; \thetaencoder), ~\phi_t \in \reals^{\zbottleneck} \\
+%     & \shat_{t:t+H-1} = g_{\mathrm{decode}}(\phi_t; \thetadecoder), \\
+%     & \hat{u}_t = \pi(x_t, \shat_{t:t+H-1}; \thetacontrol), ~u_t = \pi(x_t, s_{t:t+H-1}; \thetacontrol), \\ 
+%     & x_{t+1} = f\big(x_t, \hat{u}_t, s_t), \quad \mathrm{and} \quad x_t \in \mathcal{X}, \hat{u}_t \in \mathcal{U}, \quad t \in \{0, \cdots, T-1\}.
+% \end{align*}
+\end{problem}
+
+\tu{Technical Novelty and Practicality of our Co-design Problem:} 
+
+Having formalized our problem, we can now articulate how it differs from classical networked control and tele-operation \cite{hespanha2007survey,borkar1997lqg,tatikonda2004control,tatikonda2004stochastic,kostina2019rate}, compressed sensing \cite{donoho2006compressed,eldar2012compressed}, and certainty-equivalent control \cite{van1981certainty,mania2019certainty}.
+First, we can not readily apply the classical separation principle \cite{wonham1968separation} of Linear Quadratic Gaussian (LQG) control, which proscribes how to \textit{independently} design a timeseries estimator, such as the Kalman Filter \cite{kalman}, and a ``certainty-equivalent'' controller (the linear quadratic regulator) for optimal performance. This is because the timeseries owner measures a \textbf{non-stationary timeseries} $s_t$ (e.g. spatiotemporal cell demand patterns), without an analytical process model for standard Kalman Filtering, motivating our subsequent use of learned DNN forecasters. Second, due to \textbf{data-rate constraints}, we must prioritize task-relevant features as opposed to equally weighting and sending the full $\hat{s}_t$, which a classic state observer in LQG would do. 
+
+Moreover, even when the estimator and controller are separated by a bandwidth-limited network and the separation principle does not hold \cite{6146405}, our setting still differs from classical networked control \cite{hespanha2007survey,borkar1997lqg,tatikonda2004control,tatikonda2004stochastic,kostina2019rate}. These works assume that both the full plant state $x_t$ and controls $u_t$ are encoded and transmitted between a remote controller and plant. In stark contrast, the only transmitted data in our setting is \textit{external} information $s_t$ from a network operator, which can improve an independent controller's \textit{local} decisions $u_t$ based on its internal state $x_t$. As such, simply grouping controller state $x_t$ and network timeseries $s_t$ into a joint state for classical tele-operation is infeasible, since $x_t$ and $s_t$ are measured at different locations by different entities. 
+%Our novel setting is important in smart cities to limit data sharing between IoT sensors, network operators, and controllers. 
+In essence, Prob. \ref{prob:codesign} formalizes how a network operator can provide significant value to an independent controller by judicious data sharing.
+
+%we capture many practical scenarios where a controller measures its internal state $x_t$ and makes decisions $u_t$ locally. Crucially, we model how \textit{external} information $s_t$ from a network operator can improve a controller's local decision-making, which is the only transmitted data. Such scenarios are important in smart cities to limit data sharing between IoT sensors, network operators, and controllers. 
+%
+%In contrast, we capture many practical scenarios where a controller measures its internal state $x_t$ and makes decisions $u_t$ locally. Crucially, we model how \textit{external} information $s_t$ from a network operator can improve a controller's local decision-making, which is the only transmitted data. 
+%Such scenarios are important in smart cities to limit data sharing between IoT sensors, network operators, and controllers. 
+
+%In contrast, we model how \textit{external} information $s_t$ from a network operator can significnatly improve an independent controller's local decisions $u_t$ coupled with full measurements of its internal state $x_t$.
+%Crucially, we model how \textit{external} information $s_t$ from a network operator can improve a controller's local decision-making, which is the only transmitted data. 
+%Importantly, forecast $s_t$ is the only transmitted data, which is cruical to limit data sharing between IoT sensors, network operators, and controllers in smart cities. 
+%\SC{Finally, simply grouping controller state $x_t$ and timeseries $s_t$ into a joint state and applying classical tele-operation is infeasible because $x_t$ and $s_t$ are measured at different locations by distinct entities}.
+
+%In essence, Prob. \ref{prob:codesign} formalizes how a network operator can provide significant value to an independent controller by measuring and forecasting task-relevant trends of $s_t$.}
+%Third, the operator only sees \textit{uncontrollable} $s_t$, while the application  measures \textit{controllable}, internal state $x_t$. Thus, augmenting them into a \textit{fully-controllable} macro-state $\bar{x}_t = [x_t, s_t]$ like classical networked LQR is infeasible due to the presence of \textbf{distinct information spaces} and inappropriate since $s_t$ is not a controlled state. 
+%Crucially, we model how a network operator can provide significant value to an independent controller by sharing task-relevant trends of $s_t$ to improve decision-making, which is the only transmitted data. Such scenarios are important in smart cities to limit data sharing between IoT sensors, network operators, and controllers.
+%In contrast, we capture many practical scenarios where a controller measures its internal state $x_t$ and makes decisions $u_t$ locally. 
+%Crucially, we model how \textit{external} information $s_t$ improves decisions, which is the only transmitted data. Such scenarios are important in smart cities to limit data sharing between IoT sensors, network operators, and controllers.

@@ -1,0 +1,32 @@
+%\begin{figure*}[ht]
+%\vskip 0.2in
+\begin{wrapfigure}{L}{0.5\textwidth}
+\begin{minipage}{0.5\textwidth}
+\begin{algorithm}[H]
+   \caption{Compression Co-design for Control}
+   \label{alg:codesign}
+   \begin{algorithmic}[1]
+       \STATE Set forecast weight $\lambdaforecast$, bottleneck size $\zbottleneck$ \label{alg:lambda}
+       \STATE Initialize encoder/decoder parameters $\thetaencoder^{0}$, $\thetadecoder^{0}$ randomly, and fix controller parameters $\thetacontrol$ \label{alg:init_controller}
+       \FOR{$\tau~ \gets 0$ \KwTo $\Nepochs-1$}{
+               \STATE Initialize Controller State $x_0 \in \mathcal{X}$ 
+           \FOR{$t~ \gets 0$ \KwTo $T-1$}{
+               \STATE Encode $\phi_t = g_{\mathrm{encode}}(s_{t-W+1:t}; \thetaencoder^{\tau})$ \label{alg:encode}
+               \STATE Decode $\hat{s}_{t:t+H-1} = g_{\mathrm{decode}}(\phi_t; \thetadecoder^{\tau})$ \label{alg:decode}
+               \STATE Enact $\hat{u}_{t} = \pi(x_t, \hat{s}_{t:t+H-1}; \thetacontrol)$ 
+               \STATE Propagate  $x_{t+1} \gets f(x_t, \hat{u}_t, s_t)$ 
+               \STATE $u_{t} = \pi(x_t, s_{t:t+H-1}; \thetacontrol)$ (For Training Only) \label{alg:plan}
+            }
+           \ENDFOR
+           \STATE $\thetaencoder^{\tau + 1}, \thetadecoder^{\tau + 1} \gets$\par$\textsc{BackProp} \big[\Joverall(\boldu,\bolduhat,\bolds,\boldshat; x_0, \lambdaforecast)\big]$ \label{alg:backprop}
+       }
+       \ENDFOR
+       \STATE Return learned parameters $\thetaencoder^{\Nepochs}, \thetadecoder^{\Nepochs}$
+    \end{algorithmic}
+\end{algorithm}
+
+\end{minipage}
+\end{wrapfigure}
+%\vskip -0.2in
+%\vskip -0.2in
+%\end{figure*}
